@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MotoPulse</title>
+<meta name="description" content="O tură cu harta ei, într-un link. Datele stau în link, nu pe un server.">
+<meta property="og:title" content="MotoPulse">
+<meta property="og:description" content="O tură cu harta ei, într-un link.">
+<meta property="og:type" content="website">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="maplibre-gl.css">
+<style>
+:root { --bg: #f6f5f7; --fg: #1c1b1f; --muted: #605d66; --card: #ffffff; --line: #d9d6de; --accent: #6d28d9; --on-accent: #ffffff; }
+@media (prefers-color-scheme: dark) { :root { --bg: #141316; --fg: #ece9f0; --muted: #a9a4b2; --card: #1f1d23; --line: #34313a; --accent: #a78bfa; --on-accent: #17102b; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, sans-serif; }
+main { max-width: 720px; margin: 0 auto; padding: 16px; }
+.kind { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+h1 { font-size: 26px; line-height: 1.2; margin: 4px 0 12px; overflow-wrap: anywhere; }
+#map { height: 56vh; min-height: 280px; border-radius: 14px; border: 1px solid var(--line); overflow: hidden; background: var(--card); }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 12px 0; }
+dt { color: var(--muted); }
+dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.actions { display: grid; gap: 10px; margin: 12px 0; }
+.actions a { display: block; text-align: center; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font-weight: 600; text-decoration: none; min-height: 48px; }
+.actions a#open { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.note, footer { color: var(--muted); font-size: 14px; }
+#error { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; font-weight: 600; }
+footer { margin-top: 16px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <p class="kind" id="kind">MotoPulse</p>
+  <h1 id="title">MotoPulse</h1>
+  <p id="error" role="alert" hidden></p>
+  <div id="map" role="img" aria-label="Map"></div>
+  <p class="note" id="mapnote" hidden></p>
+  <dl id="facts"></dl>
+  <div class="actions">
+    <a id="open" hidden></a>
+    <a id="cal" hidden></a>
+    <a id="maps" hidden target="_blank" rel="noopener noreferrer"></a>
+  </div>
+  <footer>
+    <p>© OpenStreetMap contributors · OpenFreeMap</p>
+    <p id="privacy">Datele turei stau în link, nu pe un server.</p>
+  </footer>
+</main>
+<script defer src="maplibre-gl.js"></script>
+<script type="module" src="link.js"></script>
+</body>
+</html>
