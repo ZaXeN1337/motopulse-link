@@ -63,9 +63,15 @@ export function decodeShareLink(urlOrFragment, nowMs) {
   } catch { return null; }
 }
 
+/** GR-2: the join code of "<page>#g.<CODE>" or "motopulse://open/g/<CODE>", or null (same rule as decodeGroupLink in share_link.ts). */
+export function groupCode(urlOrFragment) {
+  const match = /^(?:.*#|motopulse:\/\/open\/)?g[./]([A-HJ-NP-Za-hj-np-z2-9]{8})\/?$/s.exec(String(urlOrFragment).trim());
+  return match ? match[1].toUpperCase() : null;
+}
+export const groupIntentUrl = code => `intent://open/g/${code}#Intent;scheme=motopulse;package=com.motopulse.app;end`;
 export const intentUrl = part => `intent://open/v1/${part}#Intent;scheme=motopulse;package=com.motopulse.app;end`;
 export const mapsUrl = m => `https://www.google.com/maps/search/?api=1&query=${m.a},${m.o}`;
-const esc = s => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const esc = s => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n?|\n/g, '\\n'); // a lone CR ends a line too
 const utc = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 export function buildIcs(p, nowMs, uid) {
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MotoPulse//Invite//EN', 'BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${utc(nowMs)}`, `DTSTART:${utc(p.t)}`, `DTEND:${utc(p.t + 3 * 3600000)}`, `SUMMARY:${esc(p.n)}`];
@@ -76,8 +82,8 @@ export function buildIcs(p, nowMs, uid) {
 }
 
 const TEXT = {
-  ro: { invite: 'Invitație la tură de grup', ride: 'Tură', dist: 'Distanță', when: 'Când', where: 'Întâlnire', note: 'Notă', open: 'Deschide în MotoPulse', cal: 'Adaugă în calendar', maps: 'Întâlnirea în Google Maps', invalid: 'Link invalid. Cere să ți se trimită din nou.', noMap: 'Harta nu s-a putut încărca. Datele turei sunt mai sus.', priv: 'Datele turei stau în link, nu pe un server.' },
-  en: { invite: 'Group ride invitation', ride: 'Ride', dist: 'Distance', when: 'When', where: 'Meeting point', note: 'Note', open: 'Open in MotoPulse', cal: 'Add to calendar', maps: 'Meeting point in Google Maps', invalid: 'Invalid link. Ask for it to be sent again.', noMap: 'The map could not be loaded. The ride details are above.', priv: 'The ride data lives in the link, not on a server.' },
+  ro: { invite: 'Invitație la tură de grup', ride: 'Tură', dist: 'Distanță', when: 'Când', where: 'Întâlnire', note: 'Notă', open: 'Deschide în MotoPulse', group: 'Invitație într-un grup MotoPulse', code: 'Cod de grup', cal: 'Adaugă în calendar', maps: 'Întâlnirea în Google Maps', invalid: 'Link invalid. Cere să ți se trimită din nou.', noMap: 'Harta nu s-a putut încărca. Datele turei sunt mai sus.', priv: 'Datele turei stau în link, nu pe un server.' },
+  en: { invite: 'Group ride invitation', ride: 'Ride', dist: 'Distance', when: 'When', where: 'Meeting point', note: 'Note', open: 'Open in MotoPulse', group: 'Invitation to a MotoPulse group', code: 'Group code', cal: 'Add to calendar', maps: 'Meeting point in Google Maps', invalid: 'Invalid link. Ask for it to be sent again.', noMap: 'The map could not be loaded. The ride details are above.', priv: 'The ride data lives in the link, not on a server.' },
 };
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
@@ -86,7 +92,14 @@ function init() {
   const tx = TEXT[(navigator.language || 'en').toLowerCase().startsWith('ro') ? 'ro' : 'en'];
   document.documentElement.lang = (navigator.language || 'en').toLowerCase().startsWith('ro') ? 'ro' : 'en';
   $('privacy').textContent = tx.priv;
-  const now = Date.now(), hash = location.hash, p = decodeShareLink(hash, now);
+  const now = Date.now(), hash = location.hash, code = groupCode(hash);
+  if (code) {
+    $('map').hidden = true; $('kind').textContent = 'MotoPulse'; $('title').textContent = tx.group; document.title = `${tx.group} · MotoPulse`;
+    const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = tx.code; dd.textContent = code; $('facts').append(dt, dd);
+    if (/Android/i.test(navigator.userAgent)) { const a = $('open'); a.textContent = tx.open; a.href = groupIntentUrl(code); a.hidden = false; }
+    return;
+  }
+  const p = decodeShareLink(hash, now);
   if (!p) { $('map').hidden = true; $('error').textContent = tx.invalid; $('error').hidden = false; return; }
   const fmt = new Intl.DateTimeFormat(navigator.language, { dateStyle: 'full', timeStyle: 'short' });
   $('title').textContent = p.n || (p.k === 'i' ? tx.invite : tx.ride);
