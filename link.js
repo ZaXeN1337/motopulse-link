@@ -59,6 +59,12 @@ export function decodeShareLink(urlOrFragment, nowMs) {
     }
     if (o.t !== undefined) { if (o.k !== 'i' || !num(o.t, nowMs - DAY, nowMs + 400 * DAY)) return null; out.t = o.t; }
     if (o.x !== undefined) { if (o.k !== 'i' || !str(o.x, 200)) return null; out.x = o.x; }
+    if (o.g !== undefined) {
+      const g = o.g;
+      if (!g || typeof g !== 'object' || !num(g.a, -90, 90) || !num(g.o, -180, 180) || !str(g.l, 60)) return null;
+      out.g = { a: g.a, o: g.o, l: g.l };
+    }
+    if (o.c !== undefined) { if (o.k !== 'i' || typeof o.c !== 'string' || !/^[A-HJ-NP-Z2-9]{8}$/.test(o.c)) return null; out.c = o.c; }
     return out;
   } catch { return null; }
 }
@@ -82,8 +88,8 @@ export function buildIcs(p, nowMs, uid) {
 }
 
 const TEXT = {
-  ro: { invite: 'Invitație la tură de grup', ride: 'Tură', dist: 'Distanță', when: 'Când', where: 'Întâlnire', note: 'Notă', open: 'Deschide în MotoPulse', group: 'Invitație într-un grup MotoPulse', code: 'Cod de grup', cal: 'Adaugă în calendar', maps: 'Întâlnirea în Google Maps', invalid: 'Link invalid. Cere să ți se trimită din nou.', noMap: 'Harta nu s-a putut încărca. Datele turei sunt mai sus.', priv: 'Datele turei stau în link, nu pe un server.' },
-  en: { invite: 'Group ride invitation', ride: 'Ride', dist: 'Distance', when: 'When', where: 'Meeting point', note: 'Note', open: 'Open in MotoPulse', group: 'Invitation to a MotoPulse group', code: 'Group code', cal: 'Add to calendar', maps: 'Meeting point in Google Maps', invalid: 'Invalid link. Ask for it to be sent again.', noMap: 'The map could not be loaded. The ride details are above.', priv: 'The ride data lives in the link, not on a server.' },
+  ro: { invite: 'Invitație la tură de grup', ride: 'Tură', dist: 'Distanță', when: 'Când', where: 'Întâlnire', note: 'Notă', open: 'Deschide în MotoPulse', confirm: 'Confirmă în MotoPulse', needApp: 'Ca să confirmi că vii, ai nevoie de MotoPulse.', group: 'Invitație într-un grup MotoPulse', code: 'Cod de grup', cal: 'Adaugă în calendar', maps: 'Întâlnirea în Google Maps', invalid: 'Link invalid. Cere să ți se trimită din nou.', noMap: 'Harta nu s-a putut încărca. Datele turei sunt mai sus.', priv: 'Datele turei stau în link, nu pe un server.' },
+  en: { invite: 'Group ride invitation', ride: 'Ride', dist: 'Distance', when: 'When', where: 'Meeting point', note: 'Note', open: 'Open in MotoPulse', confirm: 'Confirm in MotoPulse', needApp: 'To confirm you are coming, you need MotoPulse.', group: 'Invitation to a MotoPulse group', code: 'Group code', cal: 'Add to calendar', maps: 'Meeting point in Google Maps', invalid: 'Invalid link. Ask for it to be sent again.', noMap: 'The map could not be loaded. The ride details are above.', priv: 'The ride data lives in the link, not on a server.' },
 };
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
@@ -114,7 +120,8 @@ function init() {
   if (p.x) fact(tx.note, p.x);
   const button = (id, href, label) => { const a = $(id); a.textContent = label; a.href = href; a.hidden = false; };
   const part = payloadPart(hash);
-  if (/Android/i.test(navigator.userAgent)) button('open', intentUrl(part), tx.open);
+  if (/Android/i.test(navigator.userAgent)) button('open', intentUrl(part), p.c ? tx.confirm : tx.open);
+  if (p.c) { $('needapp').textContent = tx.needApp; $('needapp').hidden = false; }
   if (p.t !== undefined) {
     const ics = URL.createObjectURL(new Blob([buildIcs(p, now, `${p.t}-${part.slice(-12)}@motopulse`)], { type: 'text/calendar' }));
     const a = $('cal'); a.download = 'motopulse.ics'; button('cal', ics, tx.cal);
