@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MotoPulse</title>
-<meta name="description" content="O tură cu harta ei, într-un link. Datele stau în link, nu pe un server.">
+<meta name="description" content="O tură cu harta ei, într-un link.">
 <meta property="og:title" content="MotoPulse">
 <meta property="og:description" content="O tură cu harta ei, într-un link.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://zaxen1337.github.io/motopulse-link/og.png">
 <meta name="robots" content="noindex">
 <meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: https://tiles.openfreemap.org ; connect-src https://tiles.openfreemap.org ; worker-src blob:; style-src 'self' 'unsafe-inline'">
 <link rel="stylesheet" href="maplibre-gl.css">
 <style>
 :root { --bg: #f6f5f7; --fg: #1c1b1f; --muted: #605d66; --card: #ffffff; --line: #d9d6de; --accent: #6d28d9; --on-accent: #ffffff; }
@@ -25,7 +27,7 @@ dt { color: var(--muted); }
 dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .actions { display: grid; gap: 10px; margin: 12px 0; }
 .actions a { display: block; text-align: center; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font-weight: 600; text-decoration: none; min-height: 48px; }
-.actions a#open { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.actions a#web, .actions a#web[hidden] + a#open { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .note, footer { color: var(--muted); font-size: 14px; }
 #error { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; font-weight: 600; }
 footer { margin-top: 16px; }
@@ -42,13 +44,15 @@ footer { margin-top: 16px; }
   <dl id="facts"></dl>
   <p class="note" id="needapp" hidden></p>
   <div class="actions">
+    <a id="web" hidden></a>
     <a id="open" hidden></a>
+    <a id="install" hidden rel="noopener noreferrer"></a>
     <a id="cal" hidden></a>
     <a id="maps" hidden target="_blank" rel="noopener noreferrer"></a>
   </div>
   <footer>
     <p>© OpenStreetMap contributors · OpenFreeMap</p>
-    <p id="privacy">Datele turei stau în link, nu pe un server.</p>
+    <p id="privacy"></p>
   </footer>
 </main>
 <script defer src="maplibre-gl.js"></script>

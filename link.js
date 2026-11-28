@@ -1,7 +1,12 @@
-// MotoPulse link page: decodes the "v1" payload from the # of the URL and draws it. No server, no tracking.
+// MotoPulse link page: decodes the "v1" payload from the # of the URL and draws it. This page calls no server and tracks nothing.
 // decodeShareLink and buildIcs must stay equal to src/portability/share_link.ts and group_invite.ts (test/link_page.test.ts).
+// plecare-C3: a planned ride (code c) is also on the MotoPulse server; its short page answers „Vin / Poate” without the app.
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 const DAY = 86400000;
+/** Where Android sends people who do not have the app (the intent fallback and „Instalează MotoPulse”). */
+export const INSTALL_URL = 'https://play.google.com/store/apps/details?id=com.motopulse.app';
+/** The groups Worker; keep equal to SHORT_LINK_BASE in src/online/groups_config.ts (test/link_short.test.ts). */
+export const SHORT_BASE = 'https://motopulse-groups.sebastiantronaru2.workers.dev';
 
 function fromB64Url(b64) {
   if (b64.length % 4 === 1) throw Error('base64');
@@ -69,13 +74,21 @@ export function decodeShareLink(urlOrFragment, nowMs) {
   } catch { return null; }
 }
 
-/** GR-2: the join code of "<page>#g.<CODE>" or "motopulse://open/g/<CODE>", or null (same rule as decodeGroupLink in share_link.ts). */
-export function groupCode(urlOrFragment) {
-  const match = /^(?:.*#|motopulse:\/\/open\/)?g[./]([A-HJ-NP-Za-hj-np-z2-9]{8})\/?$/s.exec(String(urlOrFragment).trim());
-  return match ? match[1].toUpperCase() : null;
+/** GR-2 / I29: the join code (and optional 256-bit E2E key) of "<page>#g.<CODE>[.<KEY>]" or "motopulse://open/g/<CODE>[.<KEY>]", or null (same rule as decodeGroupInvite in share_link.ts). */
+export function groupInvite(urlOrFragment) {
+  const match = /^(?:.*#|motopulse:\/\/open\/?#?|motopulse:\/\/open\/)?g[./]([A-HJ-NP-Za-hj-np-z2-9]{8})(?:\.([A-Za-z0-9_-]{43}))?\/?$/s.exec(String(urlOrFragment).trim());
+  return match ? { code: match[1].toUpperCase(), key: match[2] ?? null } : null;
 }
-export const groupIntentUrl = code => `intent://open/g/${code}#Intent;scheme=motopulse;package=com.motopulse.app;end`;
-export const intentUrl = part => `intent://open/v1/${part}#Intent;scheme=motopulse;package=com.motopulse.app;end`;
+export function groupCode(urlOrFragment) {
+  return groupInvite(urlOrFragment)?.code ?? null;
+}
+// Without the app, Android opens the fallback (the install page) instead of doing nothing.
+// For E2E group invites, KEY stays on-device in the intent URI (never sent to any HTTP server or rendered as text).
+const FALLBACK = `S.browser_fallback_url=${encodeURIComponent(INSTALL_URL)};`;
+export const groupIntentUrl = (code, key = null) => `intent://open/g/${key ? `${code}.${key}` : code}#Intent;scheme=motopulse;package=com.motopulse.app;${FALLBACK}end`;
+export const intentUrl = part => `intent://open/v1/${part}#Intent;scheme=motopulse;package=com.motopulse.app;${FALLBACK}end`;
+/** The short page of a planned ride on the Worker: the answer from any browser, iPhone included. */
+export const shortUrl = code => `${SHORT_BASE}/r/${code}`;
 export const mapsUrl = m => `https://www.google.com/maps/search/?api=1&query=${m.a},${m.o}`;
 const esc = s => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n?|\n/g, '\\n'); // a lone CR ends a line too
 const utc = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -87,26 +100,44 @@ export function buildIcs(p, nowMs, uid) {
   return lines.join('\r\n') + '\r\n';
 }
 
-const TEXT = {
-  ro: { invite: 'Invitație la tură de grup', ride: 'Tură', dist: 'Distanță', when: 'Când', where: 'Întâlnire', note: 'Notă', open: 'Deschide în MotoPulse', confirm: 'Confirmă în MotoPulse', needApp: 'Ca să confirmi că vii, ai nevoie de MotoPulse.', group: 'Invitație într-un grup MotoPulse', code: 'Cod de grup', cal: 'Adaugă în calendar', maps: 'Întâlnirea în Google Maps', invalid: 'Link invalid. Cere să ți se trimită din nou.', noMap: 'Harta nu s-a putut încărca. Datele turei sunt mai sus.', priv: 'Datele turei stau în link, nu pe un server.' },
-  en: { invite: 'Group ride invitation', ride: 'Ride', dist: 'Distance', when: 'When', where: 'Meeting point', note: 'Note', open: 'Open in MotoPulse', confirm: 'Confirm in MotoPulse', needApp: 'To confirm you are coming, you need MotoPulse.', group: 'Invitation to a MotoPulse group', code: 'Group code', cal: 'Add to calendar', maps: 'Meeting point in Google Maps', invalid: 'Invalid link. Ask for it to be sent again.', noMap: 'The map could not be loaded. The ride details are above.', priv: 'The ride data lives in the link, not on a server.' },
+export const TEXT = {
+  ro: { invite: 'Invitație la tură de grup', ride: 'Tură', dist: 'Distanță', when: 'Când', where: 'Întâlnire', note: 'Notă', open: 'Deschide în MotoPulse', install: 'Instalează MotoPulse', answer: 'Răspunde: Vin / Poate', noApp: 'Poți răspunde și fără aplicație.', ios: 'MotoPulse e deocamdată doar pentru Android.', group: 'Invitație într-un grup MotoPulse', code: 'Cod de grup', e2eLabel: 'Confidențialitate', e2eValue: 'Criptat de la un capăt la altul', privGroupE2e: 'Cheia grupului stă doar în link, pe telefon, și nu ajunge la niciun server.', cal: 'Adaugă în calendar', maps: 'Întâlnirea în Google Maps', invalid: 'Link invalid. Cere să ți se trimită din nou.', noMap: 'Harta nu s-a putut încărca. Datele turei sunt mai sus.', priv: 'Datele turei stau în link, nu pe un server.', privServer: 'Tura e păstrată și pe serverul MotoPulse, ca să poți răspunde. Oricine are linkul o vede.' },
+  en: { invite: 'Group ride invitation', ride: 'Ride', dist: 'Distance', when: 'When', where: 'Meeting point', note: 'Note', open: 'Open in MotoPulse', install: 'Install MotoPulse', answer: 'Answer: I’m in / Maybe', noApp: 'You can answer without the app.', ios: 'MotoPulse is Android-only for now.', group: 'Invitation to a MotoPulse group', code: 'Group code', e2eLabel: 'Privacy', e2eValue: 'End-to-end encrypted', privGroupE2e: 'The group key stays only in the link, on your phone, and never reaches any server.', cal: 'Add to calendar', maps: 'Meeting point in Google Maps', invalid: 'Invalid link. Ask for it to be sent again.', noMap: 'The map could not be loaded. The ride details are above.', priv: 'The ride data lives in the link, not on a server.', privServer: 'The ride is also kept on the MotoPulse server, so you can answer. Anyone with the link can see it.' },
 };
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+
+/** Which actions the page offers (pure, tested): the short page answers from any browser; the app opens only on Android, where its absence falls back to the install page. */
+export function actionsFor(kind, rideCode, userAgent) {
+  const android = /Android/i.test(userAgent), ios = /iPhone|iPad|iPod/i.test(userAgent);
+  return { answer: !!rideCode && kind === 'invite', open: android, install: !ios, iosNote: ios && !(rideCode && kind === 'invite') };
+}
 
 function init() {
   const $ = id => document.getElementById(id);
   const tx = TEXT[(navigator.language || 'en').toLowerCase().startsWith('ro') ? 'ro' : 'en'];
   document.documentElement.lang = (navigator.language || 'en').toLowerCase().startsWith('ro') ? 'ro' : 'en';
-  $('privacy').textContent = tx.priv;
-  const now = Date.now(), hash = location.hash, code = groupCode(hash);
-  if (code) {
+  const button = (id, href, label) => { const a = $(id); a.textContent = label; a.href = href; a.hidden = false; };
+  const note = text => { $('needapp').textContent = text; $('needapp').hidden = false; };
+  const now = Date.now(), hash = location.hash, grp = groupInvite(hash);
+  if (grp) {
     $('map').hidden = true; $('kind').textContent = 'MotoPulse'; $('title').textContent = tx.group; document.title = `${tx.group} · MotoPulse`;
-    const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = tx.code; dd.textContent = code; $('facts').append(dt, dd);
-    if (/Android/i.test(navigator.userAgent)) { const a = $('open'); a.textContent = tx.open; a.href = groupIntentUrl(code); a.hidden = false; }
+    const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = tx.code; dd.textContent = grp.code; $('facts').append(dt, dd);
+    if (grp.key) {
+      const eDt = document.createElement('dt'), eDd = document.createElement('dd');
+      eDt.textContent = tx.e2eLabel; eDd.textContent = tx.e2eValue;
+      $('facts').append(eDt, eDd);
+      $('privacy').textContent = tx.privGroupE2e;
+    }
+    const act = actionsFor('group', null, navigator.userAgent);
+    if (act.open) button('open', groupIntentUrl(grp.code, grp.key), tx.open);
+    if (act.install) button('install', INSTALL_URL, tx.install);
+    if (act.iosNote) note(tx.ios);
     return;
   }
   const p = decodeShareLink(hash, now);
   if (!p) { $('map').hidden = true; $('error').textContent = tx.invalid; $('error').hidden = false; return; }
+  // A ride with a code is kept on the server too: the line about the link would not be true for it.
+  $('privacy').textContent = p.c ? tx.privServer : tx.priv;
   const fmt = new Intl.DateTimeFormat(navigator.language, { dateStyle: 'full', timeStyle: 'short' });
   $('title').textContent = p.n || (p.k === 'i' ? tx.invite : tx.ride);
   document.title = `${p.n || tx.ride} · MotoPulse`;
@@ -118,10 +149,11 @@ function init() {
   if (p.t !== undefined) fact(tx.when, fmt.format(new Date(p.t)));
   if (p.m) fact(tx.where, p.m.l);
   if (p.x) fact(tx.note, p.x);
-  const button = (id, href, label) => { const a = $(id); a.textContent = label; a.href = href; a.hidden = false; };
-  const part = payloadPart(hash);
-  if (/Android/i.test(navigator.userAgent)) button('open', intentUrl(part), p.c ? tx.confirm : tx.open);
-  if (p.c) { $('needapp').textContent = tx.needApp; $('needapp').hidden = false; }
+  const part = payloadPart(hash), act = actionsFor(p.k === 'i' ? 'invite' : 'ride', p.c ?? null, navigator.userAgent);
+  if (act.answer) { button('web', shortUrl(p.c), tx.answer); note(tx.noApp); }
+  if (act.open) button('open', intentUrl(part), tx.open);
+  if (act.install) button('install', INSTALL_URL, tx.install);
+  if (act.iosNote) note(tx.ios);
   if (p.t !== undefined) {
     const ics = URL.createObjectURL(new Blob([buildIcs(p, now, `${p.t}-${part.slice(-12)}@motopulse`)], { type: 'text/calendar' }));
     const a = $('cal'); a.download = 'motopulse.ics'; button('cal', ics, tx.cal);
